@@ -1,13 +1,23 @@
-"""Wrapper that strips disabled tools before serving (stateless HTTP)."""
+"""Wrapper that strips disabled tools before serving (with header auth)."""
 import os
 import sys
-import asyncio
+import logging
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 disabled_raw = os.getenv("DISABLED_TOOLS", "")
 disabled = {t.strip() for t in disabled_raw.split(",") if t.strip()}
 
 from meta_ads_mcp.core.server import mcp_server
 
+# Ensure all tool modules are imported (so they register their tools)
+from meta_ads_mcp.core import (
+    accounts, campaigns, adsets, ads, insights, authentication,
+    ads_library, budget_schedules, reports, openai_deep_research,
+)
+
+# Filter out disabled tools
 if disabled:
     tm = mcp_server._tool_manager
     removed = []
@@ -19,9 +29,20 @@ if disabled:
 else:
     print("[filter] No DISABLED_TOOLS env var set", file=sys.stderr, flush=True)
 
+# Configure HTTP settings
+mcp_server.settings.host = "0.0.0.0"
+mcp_server.settings.port = 8080
+mcp_server.settings.stateless_http = True
+mcp_server.settings.json_response = True
+
+# CRITICAL: setup the auth middleware that reads X-META-ACCESS-TOKEN header
+try:
+    from meta_ads_mcp.core.http_auth_integration import setup_fastmcp_http_auth
+    setup_fastmcp_http_auth(mcp_server)
+    print("[auth] HTTP authentication middleware enabled", file=sys.stderr, flush=True)
+except Exception as e:
+    print(f"[auth] WARNING: failed to setup HTTP auth middleware: {e}", file=sys.stderr, flush=True)
+
+# Start the server using the same method pipeboard uses
 if __name__ == "__main__":
-    mcp_server.settings.host = "0.0.0.0"
-    mcp_server.settings.port = 8080
-    # Stateless mode = no session required (matches the previous behavior)
-    mcp_server.settings.stateless_http = True
-    asyncio.run(mcp_server.run_streamable_http_async())
+    mcp_server.run(transport="streamable-http")
