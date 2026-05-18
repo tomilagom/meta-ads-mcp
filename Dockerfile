@@ -21,6 +21,6 @@ RUN uv pip install --system -r requirements.txt
 # Copy the rest of the application
 COPY . .
 
-# Command to run the Meta Ads MCP server
+# Command to run the Meta Ads MCP server with tool filtering
 EXPOSE 8080
-CMD ["python", "-m", "meta_ads_mcp", "--transport", "streamable-http", "--host", "0.0.0.0", "--port", "8080"]
+CMD ["python", "/app/start_filtered.py"]
