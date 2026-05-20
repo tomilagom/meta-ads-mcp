@@ -35,6 +35,17 @@ mcp_server.settings.port = 8080
 mcp_server.settings.stateless_http = True
 mcp_server.settings.json_response = True
 
+# FastMCP's __init__ auto-enables DNS-rebinding protection with a localhost-only
+# allowlist whenever the default host (127.0.0.1) is used. Reassigning
+# `settings.host` above does not re-evaluate that; the allowlist stays
+# localhost-only, so requests with the public Host header get 421
+# "Invalid Host header". Disable the guard since auth is handled by the
+# X-META-ACCESS-TOKEN header and TLS by the reverse proxy.
+from mcp.server.transport_security import TransportSecuritySettings
+mcp_server.settings.transport_security = TransportSecuritySettings(
+    enable_dns_rebinding_protection=False,
+)
+
 # CRITICAL: setup the auth middleware that reads X-META-ACCESS-TOKEN header
 try:
     from meta_ads_mcp.core.http_auth_integration import setup_fastmcp_http_auth
